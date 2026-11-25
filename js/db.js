@@ -78,18 +78,37 @@ export async function sair() {
 export const usuario = () => user;
 
 // ---- dados ----
+// Devolve na hora o que está guardado no aparelho e busca o servidor em segundo plano.
+// Só espera a rede na primeira vez (quando o aparelho ainda não tem nada).
+const ultimaBusca = {};
+const temCache = (t) => cache[t] !== undefined || localStorage.getItem(chaveCache(t)) !== null;
+
+async function buscarServidor(tabela) {
+  if (!navigator.onLine) return false;
+  await enviar().catch(() => {});
+  const { data, error } = await sb.from(tabela).select('*');
+  if (error) return false;
+  ultimaBusca[tabela] = Date.now();
+  const fil = fila.pendentes().filter((o) => o.tabela === tabela);
+  const porId = new Map(data.map((l) => [l.id, normalizar(l)]));
+  for (const o of fil) o.remover ? porId.delete(o.linha.id) : porId.set(o.linha.id, o.linha);
+  const novo = ordenar([...porId.values()]);
+  const mudou = JSON.stringify(novo) !== JSON.stringify(lerCache(tabela));
+  gravarCache(tabela, novo);
+  return mudou;
+}
+
+let avisoAgendado = null;
 export async function listar(tabela) {
   if (DEMO) return lerCache(tabela);
-  if (navigator.onLine) {
-    await enviar().catch(() => {});
-    const { data, error } = await sb.from(tabela).select('*');
-    if (!error) {
-      // mantém o que ainda está na fila por cima do que veio do servidor
-      const fil = fila.pendentes().filter((o) => o.tabela === tabela);
-      const porId = new Map(data.map((l) => [l.id, l]));
-      for (const o of fil) o.remover ? porId.delete(o.linha.id) : porId.set(o.linha.id, o.linha);
-      gravarCache(tabela, [...porId.values()].map(normalizar));
-    }
+  if (!temCache(tabela)) { await buscarServidor(tabela); return lerCache(tabela); }
+  if (Date.now() - (ultimaBusca[tabela] ?? 0) > 20000) {
+    ultimaBusca[tabela] = Date.now();
+    buscarServidor(tabela).then((mudou) => {
+      if (!mudou) return;
+      clearTimeout(avisoAgendado);
+      avisoAgendado = setTimeout(() => document.dispatchEvent(new CustomEvent('dados-mudaram')), 100);
+    }).catch(() => {});
   }
   return lerCache(tabela);
 }

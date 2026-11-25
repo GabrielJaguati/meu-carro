@@ -41,9 +41,12 @@ const mod = (i) => ((Math.round(i) % N) + N) % N;
 const centro = (z) => z.elipse ? z.elipse.slice(0, 2)
   : [0, 1].map((k) => z.pontos.reduce((s, p) => s + p[k], 0) / z.pontos.length);
 
+// as 72 imagens são carregadas uma vez só e reaproveitadas a cada volta pra tela
+const cacheQuadros = {};
+
 export function montarGiro(el, { aoTocar, base = 'img/giro/', ms = 75 } = {}) {
   el.classList.add('giro');
-  const quadros = Array.from({ length: N }, (_, i) => { const im = new Image(); im.src = `${base}${String(i).padStart(2, '0')}.webp`; return im; });
+  const quadros = cacheQuadros[base] ??= Array.from({ length: N }, (_, i) => { const im = new Image(); im.decoding = 'async'; im.src = `${base}${String(i).padStart(2, '0')}.webp`; return im; });
   const img = document.createElement('img'); img.className = 'giro-img'; img.alt = 'Teu carro'; img.draggable = false; img.src = quadros[0].src;
   const svg = document.createElementNS(NS, 'svg'); svg.setAttribute('viewBox', '0 0 900 560'); svg.setAttribute('class', 'giro-zonas');
   el.append(img, svg);
@@ -75,8 +78,10 @@ export function montarGiro(el, { aoTocar, base = 'img/giro/', ms = 75 } = {}) {
   const encaixar = () => animarAte(Math.round(pos / PASSO) * PASSO);
 
   let ultimo = performance.now();
+  // para sozinho quando a tela sai (troca de aba) ou o app vai pro fundo
   (function girar(t) {
-    if (auto && t - ultimo >= ms) { ultimo = t; mostrar(pos + 1); el.classList.remove('no-ponto'); }
+    if (!el.isConnected) return;
+    if (auto && !document.hidden && t - ultimo >= ms) { ultimo = t; mostrar(pos + 1); el.classList.remove('no-ponto'); }
     requestAnimationFrame(girar);
   })(ultimo);
 
