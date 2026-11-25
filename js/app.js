@@ -18,7 +18,10 @@ function moverIndicador(animar = true) {
 }
 addEventListener('resize', () => moverIndicador(false));
 
+let navegacao = 0;
 export async function irPara(id, opcoes = {}) {
+  if (atual === id && app.querySelector('section.tela') && !opcoes.forcar) return; // toque repetido na mesma aba
+  const minha = ++navegacao;
   const de = atual; atual = id;
   const dir = de ? Math.sign(ORDEM.indexOf(id) - ORDEM.indexOf(de)) || 1 : 0;
   nav.querySelectorAll('button').forEach((b) => {
@@ -27,16 +30,14 @@ export async function irPara(id, opcoes = {}) {
     b.classList.toggle('on', on);
   });
   moverIndicador(!!de);
-  const velha = app.querySelector('section.tela');
-  if (velha && dir) {
-    velha.classList.add('saindo'); velha.style.setProperty('--dir', dir); velha.style.top = -scrollY + 'px';
-    setTimeout(() => velha.remove(), 280);
-  } else velha?.remove();
+  // tira TODAS as telas que estiverem na página (nunca deixa sobrar tela velha empilhada)
+  app.querySelectorAll('section.tela').forEach((v) => v.remove());
   const el = document.createElement('section'); el.className = 'tela'; el.dataset.tela = id;
   if (dir) { el.classList.add('entrando'); el.style.setProperty('--dir', dir); el.addEventListener('animationend', () => el.classList.remove('entrando'), { once: true }); }
   app.appendChild(el);
   scrollTo(0, 0);
   await telas[id].montar(el, opcoes);
+  if (minha !== navegacao) el.remove(); // outra troca começou enquanto esta montava
 }
 
 // recarrega a tela atual quando os dados mudam (salvar, remover, sincronizar)

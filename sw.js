@@ -1,5 +1,5 @@
 // Guarda a interface no aparelho pra abrir sem internet. Os dados vão pelo Supabase (com fila offline no app).
-const VERSAO = 'meu-carro-v5';
+const VERSAO = 'meu-carro-v6';
 const ARQUIVOS = [
   './',
   'index.html',
@@ -105,9 +105,14 @@ self.addEventListener('activate', (e) => e.waitUntil(caches.keys().then((ks) => 
 self.addEventListener('fetch', (e) => {
   const url = new URL(e.request.url);
   if (e.request.method !== 'GET' || url.origin !== location.origin) return; // Supabase passa direto
-  e.respondWith(caches.match(e.request, { ignoreSearch: true }).then((r) => r || fetch(e.request).then((resp) => {
-    const copia = resp.clone(); caches.open(VERSAO).then((c) => c.put(e.request, copia)); return resp;
-  })));
+  const codigo = e.request.mode === 'navigate' || /\.(js|css|html|json)$/.test(url.pathname) || url.pathname.endsWith('/');
+  const guardar = (resp) => { if (resp.ok) { const c = resp.clone(); caches.open(VERSAO).then((k) => k.put(e.request, c)); } return resp; };
+  if (codigo) {
+    // rede primeiro (pega atualização na hora); sem internet, usa a cópia guardada
+    e.respondWith(fetch(e.request).then(guardar).catch(() => caches.match(e.request, { ignoreSearch: true })));
+  } else {
+    e.respondWith(caches.match(e.request, { ignoreSearch: true }).then((r) => r || fetch(e.request).then(guardar)));
+  }
 });
 
 // notificações (lembrete do km e aviso de reserva)

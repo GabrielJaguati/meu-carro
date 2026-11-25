@@ -59,9 +59,10 @@ async function atualizar() {
   const barras = kmPorDia(leituras, ini, tipo === 'mes' ? fimP : tipo === 'semana' ? fimP : inicio);
   const max = Math.max(1, ...barras.map((b) => b.km));
   const mostrarRot = barras.length <= 7;
-  el.querySelector('#r-km').innerHTML = `<span class="rotulo">Km por dia</span><div class="barras">${barras.map((b) => {
+  const semKm = barras.every((b) => !b.km);
+  el.querySelector('#r-km').innerHTML = semKm ? `<span class="rotulo">Km por dia</span><p class="vazio-mini">Ainda sem km rodado nesse período. Anota o km do painel toda noite na tela Hoje que o gráfico aparece aqui.</p>` : `<span class="rotulo">Km por dia</span><div class="barras">${barras.map((b) => {
     const dow = new Date(b.data + 'T12:00:00Z').getUTCDay(); const futuro = b.data > hoje; const sel = tipo === 'dia' && b.data === inicio;
-    return `<div title="${dataCurta(b.data)}: ${formatarNumero(b.km)} km"><em>${mostrarRot && b.km ? formatarNumero(b.km) : ''}</em><span class="b" style="height:${Math.max(2, b.km / max * 100)}%;${futuro ? 'visibility:hidden;' : ''}${sel ? 'outline:2px solid #fff' : ''}${!sel && tipo === 'dia' ? ';opacity:.5' : ''}"></span><small>${mostrarRot ? DS[dow] : (Number(b.data.slice(8)) % 5 === 0 || b.data.endsWith('-01') ? Number(b.data.slice(8)) : '')}</small></div>`;
+    return `<div title="${dataCurta(b.data)}: ${formatarNumero(b.km)} km"><em>${mostrarRot && b.km ? formatarNumero(b.km) : ''}</em><span class="b" style="height:${b.km / max * 100}%;${futuro || !b.km ? 'visibility:hidden;' : ''}${sel ? 'outline:2px solid #fff' : ''}${!sel && tipo === 'dia' ? ';opacity:.5' : ''}"></span><small>${mostrarRot ? DS[dow] : (Number(b.data.slice(8)) % 5 === 0 || b.data.endsWith('-01') ? Number(b.data.slice(8)) : '')}</small></div>`;
   }).join('')}</div>`;
 
   const porCat = new Map(); doPer.forEach((g) => porCat.set(g.categoria_id, (porCat.get(g.categoria_id) ?? 0) + Number(g.valor)));
