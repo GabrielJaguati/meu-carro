@@ -1,5 +1,5 @@
 // Guarda a interface no aparelho pra abrir sem internet. Os dados vão pelo Supabase (com fila offline no app).
-const VERSAO = 'meu-carro-v3';
+const VERSAO = 'meu-carro-v4';
 const ARQUIVOS = [
   './',
   'index.html',

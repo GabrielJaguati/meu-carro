@@ -42,16 +42,16 @@ async function atualizar() {
   const real = abast.filter((a) => a.data >= inicio && a.data <= fim).reduce((s, a) => s + Number(a.valor), 0);
   const doPer = gastos.filter((g) => g.data >= inicio && g.data <= fim);
   const outros = doPer.reduce((s, g) => s + Number(g.valor), 0);
-  const total = est + outros;
-  const ckm = custoPorKm(total, km);
+  const total = real + outros;
+  const ckm = kmL ? custoPorKm(est + outros, km) : null;
 
-  el.querySelector('#r-destaque').innerHTML = `<span class="rotulo">Custo do carro no período</span>
-    <div style="display:flex;justify-content:space-between;align-items:baseline"><b class="num" style="font-size:40px">${formatarMoeda(total)}</b><span class="rotulo">${ckm ? formatarMoeda(ckm) + ' por km' : ''}</span></div>
-    <span class="rotulo">combustível estimado pelo km rodado + outros gastos</span>`;
+  el.querySelector('#r-destaque').innerHTML = `<span class="rotulo">Gasto com o carro no período</span>
+    <div style="display:flex;justify-content:space-between;align-items:baseline"><b class="num" style="font-size:40px">${formatarMoeda(total)}</b><span class="rotulo">${ckm ? formatarMoeda(ckm) + ' por km rodado' : ''}</span></div>
+    <span class="rotulo">abastecimentos ${formatarMoeda(real)} + outros gastos ${formatarMoeda(outros)}</span>`;
   el.querySelector('#r-grade').innerHTML = `
     <div class="cartao"><span class="rotulo">Km rodados</span><b>${formatarNumero(km)} km</b><i>${tipo === 'dia' ? 'no dia' : 'média ' + formatarNumero(km / dias.length, 0) + ' km/dia'}</i></div>
     <div class="cartao"><span class="rotulo">Consumo</span><b>${kmL ? formatarNumero(kmL, 1) + ' km/l' : '—'}</b><i>${kmL ? (cons.estimativa ? 'estimativa' : 'média do período') : 'calculando…'}</i></div>
-    <div class="cartao"><span class="rotulo">Combustível</span><b>${formatarMoeda(est)}</b><i>abastecido: ${formatarMoeda(real)}</i></div>
+    <div class="cartao"><span class="rotulo">Abastecido</span><b>${formatarMoeda(real)}</b><i>${kmL ? 'pelo km rodado ≈ ' + formatarMoeda(est) : 'consumo: após o 2º abastecimento'}</i></div>
     <div class="cartao"><span class="rotulo">Outros gastos</span><b>${formatarMoeda(outros)}</b><i>${doPer.length} ${doPer.length === 1 ? 'registro' : 'registros'}</i></div>`;
 
   // gráfico de km por dia (na visão Dia, mostra os 7 dias até ele)
@@ -65,7 +65,7 @@ async function atualizar() {
   }).join('')}</div>`;
 
   const porCat = new Map(); doPer.forEach((g) => porCat.set(g.categoria_id, (porCat.get(g.categoria_id) ?? 0) + Number(g.valor)));
-  const linhas = [['⛽ Combustível', est], ...[...porCat].map(([id, v]) => { const c = cats.find((x) => x.id === id); return [`${c?.icone ?? ''} ${c?.nome ?? 'Outros'}`, v]; })].filter((l) => l[1] > 0).sort((a, b) => b[1] - a[1]);
+  const linhas = [['⛽ Combustível', real], ...[...porCat].map(([id, v]) => { const c = cats.find((x) => x.id === id); return [`${c?.icone ?? ''} ${c?.nome ?? 'Outros'}`, v]; })].filter((l) => l[1] > 0).sort((a, b) => b[1] - a[1]);
   const mx = Math.max(1, ...linhas.map((l) => l[1]));
   el.querySelector('#r-cats').innerHTML = `<span class="rotulo">Para onde foi o dinheiro</span>${linhas.length ? `<div class="horiz">${linhas.map(([n, v]) => `<div class="l"><span>${esc(n)}</span><span class="t"><i style="width:${v / mx * 100}%"></i></span><b>${formatarMoeda(v)}</b></div>`).join('')}</div>` : '<p class="vazio">Sem gastos nesse período.</p>'}`;
 }
