@@ -1,5 +1,5 @@
 // Guarda a interface no aparelho pra abrir sem internet. Os dados vão pelo Supabase (com fila offline no app).
-const VERSAO = 'meu-carro-v4';
+const VERSAO = 'meu-carro-v5';
 const ARQUIVOS = [
   './',
   'index.html',
@@ -108,4 +108,20 @@ self.addEventListener('fetch', (e) => {
   e.respondWith(caches.match(e.request, { ignoreSearch: true }).then((r) => r || fetch(e.request).then((resp) => {
     const copia = resp.clone(); caches.open(VERSAO).then((c) => c.put(e.request, copia)); return resp;
   })));
+});
+
+// notificações (lembrete do km e aviso de reserva)
+self.addEventListener('push', (e) => {
+  let d = {}; try { d = e.data.json(); } catch { d = { title: 'Meu Carro', body: e.data?.text() }; }
+  e.waitUntil(self.registration.showNotification(d.title || 'Meu Carro', {
+    body: d.body || '', tag: d.tag || 'meu-carro', icon: 'icons/icon-192.png', badge: 'icons/icon-192.png', data: { url: d.url || './' },
+  }));
+});
+self.addEventListener('notificationclick', (e) => {
+  e.notification.close();
+  const alvo = new URL(e.notification.data?.url || './', self.registration.scope).href;
+  e.waitUntil(clients.matchAll({ type: 'window', includeUncontrolled: true }).then((cs) => {
+    const c = cs.find((x) => x.url.startsWith(self.registration.scope));
+    return c ? c.focus() : clients.openWindow(alvo);
+  }));
 });

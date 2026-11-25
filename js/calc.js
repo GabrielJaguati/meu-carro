@@ -156,3 +156,41 @@ export function compararCombustivel(precoAlcool, precoGasolina, kmLAlcool, kmLGa
   const proporcao = precoAlcool / precoGasolina;
   return { proporcao, limite, compensa: proporcao <= limite ? 'alcool' : 'gasolina' };
 }
+
+// ---- autonomia ----
+// Referência = a mais recente entre "autonomia do painel" (numa leitura) e "completei o tanque".
+// A partir dela: desconta km rodados ÷ km/l e soma os litros dos abastecimentos seguintes.
+export const KML_PADRAO = 11;
+
+export function autonomia({ leituras, abast, kmL, capacidade = 49 }) {
+  const usarKmL = kmL > 0 ? kmL : KML_PADRAO;
+  const refs = [
+    ...leituras.filter((l) => l.autonomia !== null && l.autonomia !== undefined && l.autonomia >= 0)
+      .map((l) => ({ km: l.km, litros: l.autonomia / usarKmL, base: 'painel', ordem: 1 })),
+    ...abast.filter((a) => a.tanque_cheio).map((a) => ({ km: a.km, litros: capacidade, base: 'cheio', ordem: 0 })),
+  ].sort((a, b) => a.km - b.km || a.ordem - b.ordem);
+  if (!refs.length) return null;
+  const ref = refs[refs.length - 1];
+  const kmAtual = Math.max(ref.km, ...leituras.map((l) => l.km), ...abast.map((a) => a.km));
+  const eventos = abast.filter((a) => a.km > ref.km).sort((a, b) => a.km - b.km);
+  let litros = ref.litros, km = ref.km;
+  const limitar = (v) => Math.min(capacidade, Math.max(0, v));
+  for (const a of eventos) { litros = limitar(litros - (a.km - km) / usarKmL + Number(a.litros)); km = a.km; }
+  litros = limitar(litros - (kmAtual - km) / usarKmL);
+  litros = Math.round(litros * 10) / 10;
+  return { litros, km: Math.round(litros * usarKmL), base: ref.base, estimativa: !(kmL > 0) };
+}
+
+// ---- lembrete ----
+export function horarioLembrete(horarios, data) {
+  const dow = paraData(data).getUTCDay();
+  const h = horarios?.[dow] ?? horarios?.[String(dow)];
+  return typeof h === 'string' && /^\d{1,2}:\d{2}$/.test(h) ? h : null;
+}
+
+export function deveLembrar(horario, minutoAgora, jaAnotou, janela = 15) {
+  if (!horario || jaAnotou) return false;
+  const [h, m] = horario.split(':').map(Number);
+  const alvo = h * 60 + m;
+  return minutoAgora >= alvo && minutoAgora - alvo < janela;
+}

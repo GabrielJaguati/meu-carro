@@ -27,8 +27,17 @@ branch `main`, pasta `/ (root)`, **Save**. Em 1 ou 2 minutos fica no ar em
 Abre o link no **Safari** → botão **Compartilhar** → **Adicionar à Tela de Início**.
 Entra com o mesmo email e senha do meu-treino.
 
+### 5. Lembretes e autonomia (uma vez só)
+1. **SQL Editor:** roda o `schema-lembretes.sql` (a versão com o segredo preenchido que veio no chat).
+2. **Edge Functions → Secrets:** adiciona `CARRO_CRON_SECRET` com o mesmo valor que está no SQL.
+   As chaves `VAPID_PUBLIC`, `VAPID_PRIVATE` e `SERVICE_KEY` já existem por causa do meu-treino.
+3. **Edge Functions → Deploy a new function → Via editor:** nome `lembretes-carro`, cola o
+   `supabase/functions/lembretes-carro/index.ts` e faz o deploy. Depois, nos detalhes da função,
+   **desliga "Verify JWT"** (o agendador chama sem login; a função confere o segredo sozinha).
+4. **No app (instalado na tela de início):** Ajustes → Lembretes → **Ativar notificações** → **Mandar teste**.
+
 ## Rotina
-- **Toda noite:** abre o app, digita o km do painel e toca em **Salvar km**.
+- **Toda noite:** abre o app, digita o km do painel (e, se quiser, a autonomia que o painel mostra) e toca em **Salvar km**.
 - **No posto:** toca no tanque do carro (ou em *Abastecer*) e lança valor, preço do litro e combustível.
   Se completar o tanque, marca **Completei o tanque**: o consumo fica exato.
 - **Outros gastos:** revisão, pneu, lavagem, estacionamento… em *Gastos* ou tocando na parte do carro.

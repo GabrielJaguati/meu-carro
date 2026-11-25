@@ -5,7 +5,10 @@ import { criarFila } from './fila.js';
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from '../config.js';
 import { hojeLocal, somarDias } from './calc.js';
 
-export const TABELAS = ['carro_leituras', 'carro_abastecimentos', 'carro_categorias', 'carro_gastos'];
+export const TABELAS = ['carro_leituras', 'carro_abastecimentos', 'carro_categorias', 'carro_gastos', 'carro_config'];
+export const CONFIG_PADRAO = { lembretes_ativos: true, horarios: { 0: '18:30', 1: '18:30', 2: '18:30', 3: '18:30', 4: '21:30', 5: '18:30', 6: '18:30' }, tanque_litros: 49, alerta_km: 60 };
+export const ehDemo = () => DEMO;
+export const cliente = () => sb;
 export const CATEGORIAS_PADRAO = [
   ['Revisão', '🔧'], ['Troca de roda', '🛞'], ['Troca de pneu', '🛞'], ['Modificações', '✨'],
   ['Lavagem', '🧽'], ['Estacionamento', '🅿️'], ['Outros', '📦'],
@@ -116,7 +119,7 @@ export async function listar(tabela) {
 // numeric vem do Postgres como string em alguns casos
 function normalizar(l) {
   const out = { ...l };
-  for (const k of ['km', 'valor', 'preco_litro', 'litros', 'ordem']) if (out[k] !== null && out[k] !== undefined) out[k] = Number(out[k]);
+  for (const k of ['km', 'valor', 'preco_litro', 'litros', 'ordem', 'autonomia', 'tanque_litros', 'alerta_km']) if (out[k] !== null && out[k] !== undefined) out[k] = Number(out[k]);
   return out;
 }
 
@@ -163,7 +166,9 @@ function semearDemo() {
     const f = { [-21]: [100, 4.69, 'alcool'], [-15]: [80, 4.79, 'alcool'], [-8]: [100, 5.99, 'gasolina_comum'], [-2]: [70, 5.99, 'gasolina_comum'] }[d];
     if (f) abast.push({ id: uuid(), user_id: 'demo', data, km, valor: f[0], preco_litro: f[1], litros: Math.round(f[0] / f[1] * 1000) / 1000, combustivel: f[2], tanque_cheio: false });
   }
+  leituras[leituras.length - 2].autonomia = 210;
   cache.carro_leituras = leituras;
+  cache.carro_config = [];
   cache.carro_abastecimentos = abast;
   cache.carro_categorias = CATEGORIAS_PADRAO.map(([nome, icone], i) => ({ id: uuid(), user_id: 'demo', nome, icone, ordem: i, ativa: true }));
   const cat = (n) => cache.carro_categorias.find((c) => c.nome === n).id;

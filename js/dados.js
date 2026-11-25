@@ -5,10 +5,11 @@ export const COMBUSTIVEIS = { alcool: 'Álcool', gasolina_comum: 'Gasolina comum
 export const COMB_CURTO = { alcool: 'Álcool', gasolina_comum: 'Comum', gasolina_aditivada: 'Aditivada' };
 
 export async function carregar() {
-  const [leituras, abast, gastos, cats] = await Promise.all([
-    db.listar('carro_leituras'), db.listar('carro_abastecimentos'), db.listar('carro_gastos'), db.listar('carro_categorias'),
+  const [leituras, abast, gastos, cats, cfgs] = await Promise.all([
+    db.listar('carro_leituras'), db.listar('carro_abastecimentos'), db.listar('carro_gastos'), db.listar('carro_categorias'), db.listar('carro_config'),
   ]);
-  return { leituras, abast, gastos, cats: [...cats].sort((a, b) => a.ordem - b.ordem) };
+  const config = { ...db.CONFIG_PADRAO, ...(cfgs[0] ?? {}) };
+  return { leituras, abast, gastos, cats: [...cats].sort((a, b) => a.ordem - b.ordem), config };
 }
 
 export const ultimo = (lista) => lista.length ? lista[lista.length - 1] : null;
