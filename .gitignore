@@ -1,0 +1,8 @@
+node_modules/
+.DS_Store
+.superpowers/
+mockups/
+vendor/three/
+img/carro/
+js/carro3d.js
+js/carro360.js
