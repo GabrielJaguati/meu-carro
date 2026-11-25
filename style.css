@@ -158,3 +158,48 @@ button{cursor:pointer}
 .km-info{display:flex;justify-content:space-between;margin-top:8px;font-size:13px;color:var(--apagado)}
 
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+
+/* ===== barra de baixo + troca de tela (3 estilos: bolha, led, central) ===== */
+#app{position:relative}
+.tela.saindo{position:fixed;left:0;right:0;pointer-events:none;animation:sai .26s ease-in forwards}
+.tela.entrando{animation:entra .34s cubic-bezier(.2,.8,.2,1) both}
+.nav button{position:relative;z-index:1;transition:color .25s}
+.nav button svg{transition:transform .3s cubic-bezier(.3,1.6,.5,1),stroke .25s,filter .25s}
+.nav button.pulo svg{animation:pulo .45s cubic-bezier(.3,1.6,.5,1)}
+@keyframes pulo{0%{transform:scale(1)}40%{transform:scale(1.28) translateY(-2px)}100%{transform:scale(1)}}
+.nav-ind{position:absolute;left:0;width:var(--w,0);transform:translateX(var(--x,0));transition:transform .42s cubic-bezier(.3,1.35,.5,1),width .42s cubic-bezier(.3,1.35,.5,1);pointer-events:none;display:none}
+
+/* --- bolha: barra flutuante com pílula vermelha que desliza; telas deslizam de lado --- */
+[data-nav=bolha] .nav{left:12px;right:12px;bottom:calc(10px + var(--base));padding:6px;border:1px solid var(--linha);border-radius:26px;background:rgba(26,32,38,.82);box-shadow:0 10px 30px rgba(0,0,0,.45)}
+[data-nav=bolha] .nav-ind{display:block;top:6px;bottom:6px;border-radius:20px;background:linear-gradient(180deg,#F0353C,#C21A21);box-shadow:0 6px 18px rgba(225,38,45,.45),inset 0 1px 0 rgba(255,255,255,.25)}
+[data-nav=bolha] .nav button{padding:7px 0 6px;border-radius:20px}
+[data-nav=bolha] .nav button.on{color:#fff}
+[data-nav=bolha] .nav button.on svg{stroke:#fff}
+[data-nav=bolha] .tela{padding-bottom:calc(110px + var(--base))}
+@keyframes entra{from{opacity:0;transform:translateX(calc(var(--dir,1)*28px))}}
+@keyframes sai{to{opacity:0;transform:translateX(calc(var(--dir,1)*-28px))}}
+
+/* --- led: linha de LED vermelha que desliza no topo da barra, ícone acende; telas surgem com zoom --- */
+[data-nav=led] .nav-ind{display:block;top:-1px;height:3px;border-radius:0 0 3px 3px;background:var(--friso);box-shadow:0 0 10px var(--friso),0 0 22px rgba(225,38,45,.6)}
+[data-nav=led] .nav-ind::after{content:"";position:absolute;left:10%;right:10%;top:3px;height:46px;background:radial-gradient(60% 100% at 50% 0,rgba(225,38,45,.28),transparent 70%)}
+[data-nav=led] .nav button.on svg{transform:translateY(-2px);filter:drop-shadow(0 0 6px rgba(225,38,45,.9))}
+[data-nav=led] .nav button:not(.on){opacity:.7}
+[data-nav=led] .tela.entrando{animation-name:entraZoom}
+[data-nav=led] .tela.saindo{animation-name:saiZoom}
+@keyframes entraZoom{from{opacity:0;transform:scale(.97);filter:blur(4px)}}
+@keyframes saiZoom{to{opacity:0;transform:scale(1.02);filter:blur(4px)}}
+
+/* --- central: botão de abastecer saltado no meio; telas sobem --- */
+[data-nav=central] .nav button[data-tela=hoje]{order:1}
+[data-nav=central] .nav button[data-tela=gastos]{order:2}
+[data-nav=central] .nav button[data-tela=abastecer]{order:3}
+[data-nav=central] .nav button[data-tela=resumo]{order:4}
+[data-nav=central] .nav button[data-tela=ajustes]{order:5}
+[data-nav=central] .nav button[data-tela=abastecer] svg{width:58px;height:58px;padding:15px;margin-top:-30px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#F4434A,#B8171E);stroke:#fff;box-shadow:0 8px 20px rgba(225,38,45,.5),0 0 0 5px var(--fundo)}
+[data-nav=central] .nav button[data-tela=abastecer].on svg{stroke:#fff}
+[data-nav=central] .nav-ind{display:block;bottom:calc(5px + var(--base));height:4px}
+[data-nav=central] .nav-ind::after{content:"";position:absolute;left:50%;width:18px;height:4px;margin-left:-9px;border-radius:2px;background:var(--friso);box-shadow:0 0 8px var(--friso)}
+[data-nav=central] .tela.entrando{animation-name:entraSobe}
+[data-nav=central] .tela.saindo{animation-name:saiDesce}
+@keyframes entraSobe{from{opacity:0;transform:translateY(18px)}}
+@keyframes saiDesce{to{opacity:0;transform:translateY(8px)}}

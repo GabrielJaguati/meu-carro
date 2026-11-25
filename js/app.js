@@ -8,11 +8,32 @@ const nav = document.getElementById('nav');
 
 export function registrarTela(id, tela) { telas[id] = tela; }
 
+const ORDEM = ['hoje', 'abastecer', 'gastos', 'resumo', 'ajustes'];
+
+function moverIndicador(animar = true) {
+  const b = nav.querySelector('button.on'), ind = nav.querySelector('.nav-ind');
+  if (!b || !ind) return;
+  ind.style.transition = animar ? '' : 'none';
+  ind.style.setProperty('--x', b.offsetLeft + 'px'); ind.style.setProperty('--w', b.offsetWidth + 'px');
+}
+addEventListener('resize', () => moverIndicador(false));
+
 export async function irPara(id, opcoes = {}) {
-  atual = id;
-  nav.querySelectorAll('button').forEach((b) => b.classList.toggle('on', b.dataset.tela === id));
-  app.replaceChildren();
+  const de = atual; atual = id;
+  const dir = de ? Math.sign(ORDEM.indexOf(id) - ORDEM.indexOf(de)) || 1 : 0;
+  nav.querySelectorAll('button').forEach((b) => {
+    const on = b.dataset.tela === id;
+    if (on && !b.classList.contains('on')) { b.classList.remove('pulo'); void b.offsetWidth; b.classList.add('pulo'); }
+    b.classList.toggle('on', on);
+  });
+  moverIndicador(!!de);
+  const velha = app.querySelector('section.tela');
+  if (velha && dir) {
+    velha.classList.add('saindo'); velha.style.setProperty('--dir', dir); velha.style.top = -scrollY + 'px';
+    setTimeout(() => velha.remove(), 280);
+  } else velha?.remove();
   const el = document.createElement('section'); el.className = 'tela'; el.dataset.tela = id;
+  if (dir) { el.classList.add('entrando'); el.style.setProperty('--dir', dir); el.addEventListener('animationend', () => el.classList.remove('entrando'), { once: true }); }
   app.appendChild(el);
   scrollTo(0, 0);
   await telas[id].montar(el, opcoes);
@@ -56,6 +77,7 @@ export const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&a
 async function entrarNoApp() {
   document.getElementById('login').hidden = true;
   app.hidden = false; nav.hidden = false;
+  document.body.dataset.nav = new URLSearchParams(location.search).get('nav') || localStorage.getItem('meu-carro:nav') || 'central';
   await db.garantirCategorias();
   const inicial = new URLSearchParams(location.search).get('tela') || 'hoje';
   await irPara(telas[inicial] ? inicial : 'hoje');
