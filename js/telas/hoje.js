@@ -3,6 +3,7 @@ import { registrarTela, irPara, aviso, html } from '../app.js';
 import { montarGiro, PARTES } from '../carroGiro.js';
 import { abrirAbastecimento, abrirGasto } from '../formularios.js';
 import { carregar, dataLonga, precoEm, ultimaLeitura } from '../dados.js';
+import { mostrador, barra, escala } from '../painel.js';
 import { hojeLocal, somarDias, parseNumeroBR, validarLeitura, kmPorDia, kmRodados, consumoMedio, gastoEstimadoDia, periodo, formatarKm, formatarMoeda, formatarNumero, autonomia } from '../calc.js';
 
 const ACOES = {
@@ -16,24 +17,40 @@ const ACOES = {
 
 let el = null;
 
+const DSEM = ['domingo', 'segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado'];
+function relogio() {
+  const st = el?.querySelector('#st-hora'); if (!st) return;
+  const d = new Date(); const h = d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' });
+  st.textContent = h;
+}
+
 async function montar(raiz) {
   el = raiz;
   const hoje = hojeLocal();
-  el.append(html(`<div class="garagem">
-      <div class="cabeca"><h1>Meu Carro</h1><span>${dataLonga(hoje)}</span></div>
+  el.classList.add('hoje-painel');
+  el.append(html(`<div class="status"><span id="st-hora"></span><span>${DSEM[new Date(hoje + 'T12:00:00Z').getUTCDay()]}, ${hoje.slice(8, 10)}/${hoje.slice(5, 7)}</span><span id="st-sync"></span></div>`));
+  el.append(html(`<div class="ambiente"></div>`));
+  el.append(html(`<div class="painel">
+      <div class="cluster">
+        <div id="b-cons"></div><div class="m" id="m-hoje"></div>
+        <div class="mini-tela" id="mini"></div>
+        <div class="m" id="m-aut"></div><div id="b-tanque"></div>
+      </div>
+      <div class="trip" id="trip"></div>
+    </div>`));
+  el.append(html(`<div class="display" id="display">
+      <span class="canto">MEU CARRO</span><span class="canto2">toque numa parte</span>
       <div id="giro"></div>
       <div class="chip" id="chip"><div><small id="chip-parte"></small><b id="chip-acao"></b></div><button id="chip-abrir">Abrir</button></div>
-      <p class="dica">Arraste pra girar · toque numa parte</p>
+      <p class="dica">arraste pra girar</p>
     </div>`));
-  el.append(html(`<form class="cartao" id="form-km" novalidate>
-      <label class="rotulo" for="km-hoje">Km do painel hoje</label>
-      <div class="km"><input class="entrada grande" id="km-hoje" inputmode="numeric" autocomplete="off"><button class="botao">Salvar km</button></div>
+  el.append(html(`<div class="linha-info" id="numeros"></div>`));
+  el.append(html(`<form class="visor-km" id="form-km" novalidate>
+      <div class="km"><label class="visor"><small>Km do painel hoje</small><input class="entrada-km" id="km-hoje" inputmode="numeric" autocomplete="off"></label><button class="botao">Salvar km</button></div>
       <label class="aut"><span>Autonomia no painel <i>(opcional)</i></span><input class="entrada" id="aut-hoje" inputmode="numeric" autocomplete="off" placeholder="ex.: 240"><b>km</b></label>
       <div class="km-info"><span id="km-ultima"></span><span class="erro" id="km-erro"></span></div>
     </form>`));
-  el.append(html(`<div class="cartao tanque" id="tanque"></div>`));
-  el.append(html(`<div class="tres" id="numeros"></div>`));
-  el.append(html(`<div class="acoes"><button class="botao sec" id="b-abast">⛽ Abastecer</button><button class="botao sec" id="b-gasto">🔧 Novo gasto</button></div>`));
+  relogio(); clearInterval(montar._t); montar._t = setInterval(relogio, 15000);
 
   let parte = null;
   const chip = el.querySelector('#chip');
@@ -44,8 +61,6 @@ async function montar(raiz) {
     },
   });
   el.querySelector('#chip-abrir').addEventListener('click', () => parte && ACOES[parte]());
-  el.querySelector('#b-abast').addEventListener('click', () => abrirAbastecimento());
-  el.querySelector('#b-gasto').addEventListener('click', () => abrirGasto());
   el.querySelector('#form-km').addEventListener('submit', salvarKm);
   await atualizar();
 }
@@ -66,43 +81,47 @@ async function salvarKm(e) {
 
 async function atualizar() {
   if (!el?.isConnected) return;
-  const { leituras, abast, config } = await carregar();
+  const { leituras, abast, gastos, config } = await carregar();
   const hoje = hojeLocal(), ontem = somarDias(hoje, -1);
   const doDia = leituras.find((l) => l.data === hoje);
   const ult = ultimaLeitura(leituras.filter((l) => l.data < hoje));
   const input = el.querySelector('#km-hoje');
   if (document.activeElement !== input) input.value = doDia ? formatarNumero(doDia.km) : '';
+  input.placeholder = ult ? formatarNumero(ult.km) : '80.000';
   const inAut = el.querySelector('#aut-hoje');
   if (document.activeElement !== inAut) inAut.value = doDia?.autonomia ?? '';
-  input.placeholder = ult ? formatarNumero(ult.km) : '80.000';
-  el.querySelector('#km-ultima').textContent = doDia ? `anotado hoje ✓` : ult ? `último: ${formatarKm(ult.km)} (${ult.data === ontem ? 'ontem' : ult.data.slice(8, 10) + '/' + ult.data.slice(5, 7)})` : 'primeira anotação';
+  el.querySelector('#km-ultima').textContent = doDia ? 'anotado hoje ✓' : ult ? `último: ${formatarKm(ult.km)} (${ult.data === ontem ? 'ontem' : ult.data.slice(8, 10) + '/' + ult.data.slice(5, 7)})` : 'primeira anotação';
+  const p = db.pendentes(); el.querySelector('#st-sync').textContent = p ? `⏳ ${p} pra enviar` : '';
 
   const cons = consumoMedio(abast, { dataRef: hoje });
   const kmL = cons?.kmL ?? null;
-  desenharTanque(autonomia({ leituras, abast, kmL, capacidade: Number(config.tanque_litros) }), config);
+  const cap = Number(config.tanque_litros);
+  const aut = autonomia({ leituras, abast, kmL, capacidade: cap });
+  const baixo = aut && aut.km <= Number(config.alerta_km);
   const dia = doDia ? hoje : ontem;
   const kmDia = kmPorDia(leituras, dia, dia)[0].km;
-  const sem = periodo(hoje, 'semana'); const kmSem = kmRodados(leituras, sem.inicio, hoje);
-  const gastoSem = abast.filter((a) => a.data >= sem.inicio && a.data <= hoje).reduce((s, a) => s + Number(a.valor), 0);
-  el.querySelector('#numeros').innerHTML = `
-    <div><span class="rotulo">${doDia ? 'Hoje' : 'Ontem'}</span><b>${formatarNumero(kmDia)} km</b><i>≈ ${formatarMoeda(gastoEstimadoDia(kmDia, kmL, precoEm(abast, dia)))}</i></div>
-    <div><span class="rotulo">Semana</span><b>${formatarNumero(kmSem)} km</b><i>${gastoSem ? formatarMoeda(gastoSem) + ' abastecido' : 'sem abastecer'}</i></div>
-    <div><span class="rotulo">Consumo</span><b>${kmL ? formatarNumero(kmL, 1) : '—'}</b><i>${kmL ? 'km/l' + (cons.estimativa ? ', estimativa' : '') : 'calculando…'}</i></div>`;
-}
 
-function desenharTanque(a, config) {
-  const t = el.querySelector('#tanque');
-  if (!a) {
-    t.className = 'cartao tanque';
-    t.innerHTML = `<span class="rotulo">Tanque</span><p class="vazio-mini">Anota a <b>autonomia do painel</b> junto com o km (ou marca “Completei o tanque” no próximo abastecimento) que eu passo a mostrar quanto ainda dá pra rodar.</p>`;
-    return;
-  }
-  const cap = Number(config.tanque_litros), pct = Math.round(a.litros / cap * 100);
-  const baixo = a.km <= Number(config.alerta_km);
-  t.className = 'cartao tanque' + (baixo ? ' baixo' : '');
-  t.innerHTML = `<div class="tq-topo"><span class="rotulo">${baixo ? '⛽ Hora de abastecer' : 'Tanque'}</span><span class="rotulo">${a.base === 'painel' ? 'pelo painel' : 'desde o tanque cheio'}${a.estimativa ? ' · estimativa' : ''}</span></div>
-    <div class="tq-linha"><b class="num">≈ ${formatarNumero(a.km)} km</b><span>${formatarNumero(a.litros, 1)} L de ${formatarNumero(cap)} L</span></div>
-    <div class="tq-barra"><i style="width:${Math.max(3, pct)}%"></i>${[25, 50, 75].map((m) => `<s style="left:${m}%"></s>`).join('')}</div>`;
+  // relógio da esquerda: km rodados (hoje, ou ontem enquanto não anotou)
+  const eh = escala(kmDia, 100);
+  el.querySelector('#m-hoje').innerHTML = mostrador({ ...eh, valor: kmDia, vermelho: eh.max * 0.8, centro: formatarNumero(kmDia), unidade: doDia ? 'km hoje' : 'km ontem' });
+  // relógio da direita: autonomia
+  const ea = escala(aut?.km ?? 0, 600);
+  el.querySelector('#m-aut').innerHTML = mostrador({ ...ea, valor: aut?.km ?? 0, apagado: !aut, centro: aut ? formatarNumero(aut.km) : '—', unidade: aut ? 'autonomia km' : 'anote a autonomia' });
+  // telinha do meio: consumo
+  el.querySelector('#mini').innerHTML = `<small>Consumo</small><b>${kmL ? formatarNumero(kmL, 1) : '—'}</b><i>km/l</i><span class="sel">${kmL ? (cons.estimativa ? 'estimativa' : 'média') : 'calculando'}</span>`;
+  // barras laterais
+  el.querySelector('#b-cons').innerHTML = barra({ fracao: kmL ? (kmL - 6) / 10 : 0, topo: '16', base: '6', rotulo: 'km/l' });
+  el.querySelector('#b-tanque').innerHTML = barra({ fracao: aut ? aut.litros / cap : 0, topo: '1', base: '0', rotulo: '⛽', alerta: 2 });
+  el.querySelector('#trip').innerHTML = `<span>${doDia ? 'hoje' : 'ontem'} <b>${formatarNumero(kmDia)} km</b></span>`
+    + (baixo ? `<span class="alerta">⛽ hora de abastecer</span>` : `<span>tanque <b>${aut ? formatarNumero(aut.litros, 1) + ' L' : '—'}</b></span>`)
+    + `<span>total <b>${ult || doDia ? formatarNumero((doDia ?? ult).km) + ' km' : '—'}</b></span>`;
+  el.querySelector('.painel').classList.toggle('baixo', !!baixo);
+
+  const sem = periodo(hoje, 'semana'), mes = periodo(hoje, 'mes');
+  const kmSem = kmRodados(leituras, sem.inicio, hoje);
+  const abSem = abast.filter((a) => a.data >= sem.inicio && a.data <= hoje).reduce((s, a) => s + Number(a.valor), 0);
+  const gMes = [...abast, ...gastos].filter((x) => x.data >= mes.inicio && x.data <= hoje).reduce((s, x) => s + Number(x.valor), 0);
+  el.querySelector('#numeros').innerHTML = `<div><small>Semana</small><b>${formatarNumero(kmSem)} km</b></div><div><small>Abastecido</small><b>${formatarMoeda(abSem).replace(',00', '')}</b></div><div><small>Mês</small><b>${formatarMoeda(gMes).replace(',00', '')}</b></div>`;
 }
 
 registrarTela('hoje', { montar, atualizar });
